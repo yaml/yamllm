@@ -15,17 +15,8 @@ when (ys-min-version > VERSION.str/split(/\./).last().num()):
 api-key =: ENV.'YAMLLM_GROQ_API_KEY' ||
   die("Please 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'.")
 
-#------------------------------------------------------------------------------
-# Constants
-#------------------------------------------------------------------------------
 api-model =: ENV.'YAMLLM_API_MODEL' ||
   'llama3-70b-8192'
-
-# ANSI color vars:
-R =:: "\x1b[1;31m"
-G =:: "\x1b[1;32m"
-Y =:: "\x1b[1;33m"
-Z =:: "\x1b[0m"
 
 #------------------------------------------------------------------------------
 # Main script logic
@@ -133,6 +124,12 @@ defn prettier(s):
 #------------------------------------------------------------------------------
 # Code for testing LLM communication using YAML
 #------------------------------------------------------------------------------
+
+# ANSI color vars:
+R =:: "\x1b[1;31m"
+G =:: "\x1b[1;32m"
+Y =:: "\x1b[1;33m"
+Z =:: "\x1b[0m"
 
 yaml-test-formatting-instructions =: |
   Do not return any explanation.

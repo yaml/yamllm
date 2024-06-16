@@ -17,7 +17,7 @@ The color pink has a long and complex history, and its associations and meanings
 have evolved over time. Here are some possible reasons why pink might be
 associated with certain qualities or themes:
 ...
-Q:
+$
 ```
 
 
