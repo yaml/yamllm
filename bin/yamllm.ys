@@ -139,7 +139,9 @@ yaml-test-formatting-instructions =: |
   Only return YAML code.
   Make sure the answer is valid YAML.
   Avoid double quotes in YAML if possible.
-  Scalars that begin with '!' or '&' must be double quoted.
+  Scalars that match the regular expression `^[!&@%&*>|,"]` must be double quoted.
+
+#   Scalars that begin with '[' or '{' must be double quoted.
 #   Only return one YAML block.
 #   Always use plain scalars for string values when possible.
 #   Always use double quoted scalars when quotes are required.
