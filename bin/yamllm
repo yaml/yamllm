@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+bin=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+if [[ $(command -v rlwrap) ]]; then
+  rlwrap ys "$bin/yamllm.ys" "$@"
+else
+  ys "$bin/yamllm.ys" "$@"
+fi

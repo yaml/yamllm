@@ -1,0 +1,10 @@
+# Source this file from bash or zsh
+
+[[ ${ZSH_VERSION-} ]] &&
+  YAMLLM_ROOT=$0 ||
+  YAMLLM_ROOT=${BASH_SOURCE[0]}
+
+YAMLLM_ROOT=$(cd "$(dirname "$YAMLLM_ROOT")" && pwd)
+export YAMLLM_ROOT
+
+export PATH=$YAMLLM_ROOT/bin:$PATH

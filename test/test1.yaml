@@ -1,0 +1,32 @@
+!yamlscript/v0/
+
+- desc: A simple, 3 pair mapping
+  json: |
+    {"subject": "I",
+     "verb": "like",
+     "object": "pie"}
+  yaml: |
+    subject: I
+    verb: like
+    object: pie
+
+- desc: A simple, 3 element sequence
+  json: |
+    ["I",
+     "like",
+     "pie"]
+  yaml: |
+    - I
+    - like
+    - pie
+
+- desc: Mapping value needs quotes
+  json: |
+    ["&foo",
+     "!bar",
+     "baz"]
+  yaml: |
+    - "&foo"
+    - "!bar"
+    - baz
+

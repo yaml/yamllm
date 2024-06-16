@@ -1,0 +1,206 @@
+#!/usr/bin/env ys-0
+
+#------------------------------------------------------------------------------
+# Initialization and sanity checks
+#------------------------------------------------------------------------------
+
+ys-min-version =: 62
+
+when-not ENV.'YAMLLM_ROOT':
+  die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
+
+when (ys-min-version > VERSION.str/split(/\./).last().num()):
+  die: 'ys version 0.1.62 or greater required'
+
+api-key =: ENV.'YAMLLM_GROQ_API_KEY' ||
+  die("Please 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'.")
+
+#------------------------------------------------------------------------------
+# Constants
+#------------------------------------------------------------------------------
+api-model =: ENV.'YAMLLM_API_MODEL' ||
+  'llama3-70b-8192'
+
+# ANSI color vars:
+R =:: "\x1b[1;31m"
+G =:: "\x1b[1;32m"
+Y =:: "\x1b[1;33m"
+Z =:: "\x1b[0m"
+
+#------------------------------------------------------------------------------
+# Main script logic
+#------------------------------------------------------------------------------
+defn main(query=nil):
+  when query.in(['--help' '-h']): usage()
+
+  test-file =: ENV.'YAMLLM_TEST_FILE'
+
+  if test-file:
+    run-tests: test-file
+    if query:
+      then:
+        say: "Q: $query"
+        run: query
+      else:
+        while true:
+          run: get-query()
+
+defn usage():
+  file =: FILE.str/replace(/.*\/(.*)/ "$1")
+  say: |
+    $ $file          - Prompt for query
+    $ $file <query>  - Specific query
+  exit: 0
+
+defn run(query):
+  when query.in(['exit' 'quit' 'q' 'Q']): exit()
+  print: "$api-model: "
+  answer =: groq(query).message()
+  say: answer.format()
+
+#------------------------------------------------------------------------------
+# Groq API functions
+#------------------------------------------------------------------------------
+defn groq(query):
+  api-url =: ENV.'YAMLLM_GROQ_API_URL' ||
+    'https://api.groq.com/openai/v1/chat/completions'
+
+  request =::
+    :headers:
+      :Content-Type: application/json
+      :Authorization:: "Bearer $api-key"
+    :body::
+      json/dump::
+        :messages:
+        - :role: user
+          :content:: query
+        :model:: api-model
+        :temperature:: (ENV.'YAMLLM_TEMP' || 0.8).num()
+        # XXX _ not allowed in YS keywords yet.
+        ! keyword('top_p'):: (ENV.'YAMLLM_TOPP' || 1.0).num()
+
+  response =:
+    try:
+      http/post api-url: request
+      catch e:
+        e =: ex-data(e)
+        say:
+          yaml/dump::
+            status:: e.status
+            body:: e.body.json/load()
+            api-key:: api-key
+        exit: 1
+
+  when ENV.'YAMLLM_DEBUG':
+    say: response.yaml/dump()
+
+  when (response.status != 200):
+    die(response)
+
+  json/load: response.body
+
+defn message(response):
+  =>: response.choices.0.message.content
+
+#------------------------------------------------------------------------------
+# Helper functions
+#------------------------------------------------------------------------------
+defn get-query():
+  loop:
+    print: "Q: "
+    q =: read-line()
+    # ctl-d returns nil to exit:
+    when q.nil?(): exit()
+    if q.empty?(): recur() q
+
+defn format(string):
+  string .=: str/triml().prettier()
+            .str/trimr()
+
+  if (string =~ /\n/):
+    +"\n$string"
+    string
+
+defn prettier(s):
+  if sh('which prettier').out.empty?():
+    then: s
+    else:
+      cmd =:: prettier --stdin-filepath=x.md
+                       --print-width=80
+                       --prose-wrap=always
+      =>: sh(cmd {:in s}).out
+
+#------------------------------------------------------------------------------
+# Code for testing LLM communication using YAML
+#------------------------------------------------------------------------------
+
+yaml-test-formatting-instructions =: |
+  Do not return any explanation.
+  Only return YAML code.
+  Make sure the answer is valid YAML.
+  Avoid double quotes in YAML if possible.
+  Scalars that begin with '!' or '&' must be double quoted.
+#   Only return one YAML block.
+#   Always use plain scalars for string values when possible.
+#   Always use double quoted scalars when quotes are required.
+
+defn run-tests(file):
+  data =: file.ys/load-file()
+
+  say: ''
+  say: 79 * '<'
+
+  loop [data data i 1]:
+    +[test & data] =: data
+    when test:
+      say: "$Y$(79 * '=')$Z"
+      say: "TEST $i:"
+      test-to-yaml: test
+      sleep: (ENV.'YAMLLM_API_SLEEP' || 0.5).num()
+      recur: data i.inc()
+
+  say: 79 * '>'
+  say: ''
+
+defn test-to-yaml(test):
+  json =: test.json
+
+  query =: |
+    Convert the following JSON code block to YAML:
+    ```
+    $json
+    ```
+    $yaml-test-formatting-instructions
+
+  resp =: query.groq()
+  resp-msg =: resp.message()
+  resp-yaml =: resp-msg.get-code-section()
+
+  d =: ENV.'YAMLLM_TEST_DEBUG'
+  if (resp-yaml = test.yaml):
+    then:
+      say: "${G}PASS EXACT - $(test.desc)$Z"
+    else:
+      say: "${R}FAIL EXACT - $(test.desc)$Z"
+      if d:
+        say:
+          yaml/dump::
+            query:: query
+            response:: resp-msg
+        say: resp-yaml
+
+  if (resp-yaml != test.yaml):
+    try:
+      if (resp-yaml.yaml/load() = test.yaml.yaml/load()):
+        say: "${G}PASS EQUAL - $(test.desc)$Z"
+        say: "${R}FAIL EQUAL - $(test.desc)$Z"
+      catch:
+        say: "${R}FAIL VALID - $(test.desc)$Z"
+
+defn get-code-section(text):
+  text =: text.str/replace(/(?s).*?```\n/ '')
+  text =: text.str/replace(/(?s)\n```(\n.*|$)/ '')
+  text =: text.str/trimr() + "\n"
+  =>: text
+
+# vim: sw=2 ft=yaml lisp:
