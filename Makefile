@@ -12,13 +12,17 @@ export YAMLLM_ROOT := $(ROOT)
 
 test-file := $(TEST)/test1.yaml
 
+repeat := 1
+
 
 #------------------------------------------------------------------------------
 default:
 
 .PHONY: test
 test: $(YS)
-	YAMLLM_TEST_FILE=$(test-file) yamllm
+	@for i in {1..$(repeat)}; do \
+	  ( set -x; YAMLLM_TEST_FILE=$(test-file) yamllm ); \
+	done
 
 install-ys: $(YS)
 
