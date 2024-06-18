@@ -24,7 +24,7 @@
 
 # The local ollama API server:
 ollama-uri =:
-  ENV.'OLLAMA_URI' ||
+  ENV.OLLAMA_URI ||
     'http://localhost:11434/api'
 
 # Main entry point function:
@@ -137,7 +137,7 @@ defn options()::
     tfs_z: 0.5
     typical_p: 0.7
     repeat_last_n: 33
-    temperature:: num(ENV.'LLM_TEMP' || 0.8)
+    temperature:: num(ENV.LLM_TEMP || 0.8)
     repeat_penalty: 1.2
     presence_penalty: 1.5
     frequency_penalty: 1.0

@@ -1,21 +1,22 @@
 #!/usr/bin/env ys-0
 
+
 #------------------------------------------------------------------------------
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
 ys-min-version =: 62
 
-when-not ENV.'YAMLLM_ROOT':
+when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
 
 when (ys-min-version > VERSION.str/split(/\./).last().num()):
   die: 'ys version 0.1.62 or greater required'
 
-api-key =: ENV.'YAMLLM_GROQ_API_KEY' ||
+api-key =: ENV.YAMLLM_GROQ_API_KEY ||
   die("Please 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'.")
 
-api-model =: ENV.'YAMLLM_API_MODEL' ||
+api-model =: ENV.YAMLLM_API_MODEL ||
   'llama3-70b-8192'
 
 #------------------------------------------------------------------------------
@@ -24,7 +25,7 @@ api-model =: ENV.'YAMLLM_API_MODEL' ||
 defn main(query=nil):
   when query.in(['--help' '-h']): usage()
 
-  test-file =: ENV.'YAMLLM_TEST_FILE'
+  test-file =: ENV.YAMLLM_TEST_FILE
 
   if test-file:
     run-tests: test-file
@@ -49,11 +50,12 @@ defn run(query):
   answer =: groq(query).message()
   say: answer.format()
 
+
 #------------------------------------------------------------------------------
 # Groq API functions
 #------------------------------------------------------------------------------
 defn groq(query):
-  api-url =: ENV.'YAMLLM_GROQ_API_URL' ||
+  api-url =: ENV.YAMLLM_GROQ_API_URL ||
     'https://api.groq.com/openai/v1/chat/completions'
 
   request =::
@@ -66,9 +68,9 @@ defn groq(query):
         - :role: user
           :content:: query
         :model:: api-model
-        :temperature:: (ENV.'YAMLLM_TEMP' || 0.8).num()
+        :temperature:: (ENV.YAMLLM_TEMP || 0.8).num()
         # XXX _ not allowed in YS keywords yet.
-        ! keyword('top_p'):: (ENV.'YAMLLM_TOPP' || 1.0).num()
+        ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0).num()
 
   response =:
     try:
@@ -82,7 +84,7 @@ defn groq(query):
             api-key:: api-key
         exit: 1
 
-  when ENV.'YAMLLM_DEBUG':
+  when ENV.YAMLLM_DEBUG:
     say: response.yaml/dump()
 
   when (response.status != 200):
@@ -92,6 +94,7 @@ defn groq(query):
 
 defn message(response):
   =>: response.choices.0.message.content
+
 
 #------------------------------------------------------------------------------
 # Helper functions
@@ -120,6 +123,7 @@ defn prettier(s):
                        --print-width=80
                        --prose-wrap=always
       =>: sh(cmd {:in s}).out
+
 
 #------------------------------------------------------------------------------
 # Code for testing LLM communication using YAML
@@ -155,7 +159,7 @@ defn run-tests(file):
       say: "$Y$(79 * '=')$Z"
       say: "TEST $i:"
       test-to-yaml: test
-      sleep: (ENV.'YAMLLM_API_SLEEP' || 0.5).num()
+      sleep: (ENV.YAMLLM_API_SLEEP || 0.5).num()
       recur: data i.inc()
 
   say: 79 * '>'
@@ -175,7 +179,7 @@ defn test-to-yaml(test):
   resp-msg =: resp.message()
   resp-yaml =: resp-msg.get-code-section()
 
-  d =: ENV.'YAMLLM_TEST_DEBUG'
+  d =: ENV.YAMLLM_TEST_DEBUG
   if (resp-yaml = test.yaml):
     then:
       say: "${G}PASS EXACT - $(test.desc)$Z"
