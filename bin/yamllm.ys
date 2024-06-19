@@ -10,7 +10,7 @@ ys-min-version =: 62
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
 
-when (ys-min-version > VERSION.str/split(/\./).last().num()):
+when (ys-min-version > VERSION.split(/\./).last().num()):
   die: 'ys version 0.1.62 or greater required'
 
 api-key =: ENV.YAMLLM_GROQ_API_KEY ||
@@ -38,7 +38,7 @@ defn main(query=nil):
           run: get-query()
 
 defn usage():
-  file =: FILE.str/replace(/.*\/(.*)/ "$1")
+  file =: FILE.replace(rx('.*/(.*)') "$1")
   say: |
     $ $file          - Prompt for query
     $ $file <query>  - Specific query
@@ -108,8 +108,7 @@ defn get-query():
     if q.empty?(): recur() q
 
 defn format(string):
-  string .=: str/triml().prettier()
-            .str/trimr()
+  string .=: triml().prettier().trimr()
 
   if (string =~ /\n/):
     +"\n$string"
@@ -201,9 +200,9 @@ defn test-to-yaml(test):
         say: "${R}FAIL VALID - $(test.desc)$Z"
 
 defn get-code-section(text):
-  text =: text.str/replace(/(?s).*?```\n/ '')
-  text =: text.str/replace(/(?s)\n```(\n.*|$)/ '')
-  text =: text.str/trimr() + "\n"
+  text =: text.replace(/(?s).*?```\n/ '')
+  text =: text.replace(/(?s)\n```(\n.*|$)/ '')
+  text =: text.trimr() + "\n"
   =>: text
 
 # vim: sw=2 ft=yaml lisp:
