@@ -19,6 +19,7 @@ api-key =: ENV.YAMLLM_GROQ_API_KEY ||
 api-model =: ENV.YAMLLM_API_MODEL ||
   'llama3-70b-8192'
 
+
 #------------------------------------------------------------------------------
 # Main script logic
 #------------------------------------------------------------------------------
@@ -45,6 +46,11 @@ defn usage():
   exit: 0
 
 defn run(query):
+  query =: |
+    $get-preamble()
+    $query
+    $get-postamble()
+
   when query.in(['exit' 'quit' 'q' 'Q']): exit()
   print: "$api-model: "
   answer =: groq(query).message()
@@ -168,11 +174,12 @@ defn test-to-yaml(test):
   json =: test.json
 
   query =: |
-    Convert the following JSON code block to YAML:
+    $(get-preamble() ||
+      "Convert the following JSON code block to YAML:")
     ```
     $json
     ```
-    $yaml-test-formatting-instructions
+    $(get-postamble() || yaml-test-formatting-instructions)
 
   resp =: query.groq()
   resp-msg =: resp.message()
@@ -204,5 +211,11 @@ defn get-code-section(text):
   text =: text.replace(/(?s)\n```(\n.*|$)/ '')
   text =: text.trimr() + "\n"
   =>: text
+
+defn get-preamble():
+  when-let [file ENV.YAMLLM_PREAMBLE_FILE]: slurp(file)
+
+defn get-postamble():
+  when-let [file ENV.YAMLLM_POSTAMBLE_FILE]: slurp(file)
 
 # vim: sw=2 ft=yaml lisp:

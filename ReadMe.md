@@ -85,6 +85,14 @@ To use these variables, be sure to `export` them after setting them.
   * `mixtral-8x7b-32768` (from Mistral)
   * `gemma-7b-it` (from Google)
 
+* `YAMLLM_PREAMBLE_FILE=<file>`
+
+  File containing text to prepend to every message sent to API.
+
+* `YAMLLM_POSTAMBLE_FILE=<file>`
+
+  File containing text to append to every message sent to API.
+
 * `YAMLLM_TEMP=<number 0.0 - 2.0>`
 
   Higher is more random.
