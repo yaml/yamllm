@@ -7,15 +7,14 @@ A YAMLScript tool to query LLMs
 ## Synopsis
 
 ```
-$ source .rc
 $ yamllm 'Why pink?'
 Q: Why pink?
 llama3-8b-8192:
 The question of pink!
 
-The color pink has a long and complex history, and its associations and meanings
-have evolved over time. Here are some possible reasons why pink might be
-associated with certain qualities or themes:
+The color pink has a long and complex history, and its associations and
+meanings have evolved over time. Here are some possible reasons why pink might
+be associated with certain qualities or themes:
 ...
 $
 ```
@@ -25,11 +24,13 @@ $
 
 This is a project to play with various LLMs from the command line.
 
-At the moment only works with [Groq](https://console.groq.com/).
+At the moment it only works with [Groq](https://console.groq.com/) which you
+can use for free with generous limits.
+It's also pretty fast.
 
 The tool is written in YAMLScript and requires a recent `ys`.
 
-You can install it here with `make install-ys`.
+You can install it here (in `$PWD/bin/`) with `make install-ys`.
 
 
 ## Installation
@@ -38,13 +39,14 @@ You can install it here with `make install-ys`.
 
 Run these commands:
 ```
-$ make install-ys  # Install YAMLScript `bin/ys`
+$ make install-ys     # Install YAMLScript `bin/ys`
 $ export YAMLLM_GROQ_API_KEY=<your-groq-api-key>
-$ source .rc       # Add `bin` to PATH (for bash or zsh)
-$ yamllm --help
+$ source .rc          # Adds `$PWD/bin` to your PATH (for bash or zsh)
+$ yamllm --help       # Ask it for some help
+$ yamllm 'Why pink?'  # Get to the important stuff
 ```
 
-Nice but not required:
+These programs make it nicer to use but are not required:
 
 * Install `rlwrap` for readline support and query history.
 * Install `prettier` for 80 column output reformatting.
@@ -62,7 +64,7 @@ $ yamllm
 
 Use `ctl-d`, `exit` or `q` to exit.
 
-To run a sinlge query:
+To run a single query:
 ```
 $ yamllm 'Tell me a story'
 

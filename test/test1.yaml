@@ -24,9 +24,14 @@
   json: |
     ["&foo",
      "!bar",
-     "baz"]
+     "*baz",
+     "[baz",
+     "-baz",
+     "%baz"]
   yaml: |
     - "&foo"
     - "!bar"
-    - baz
-
+    - "*bar"
+    - "[baz"
+    - -baz
+    - "%baz"
