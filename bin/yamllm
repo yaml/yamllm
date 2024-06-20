@@ -2,10 +2,18 @@
 
 set -euo pipefail
 
-bin=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+YAMLLM_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
+export YAMLLM_ROOT
+bin=$YAMLLM_ROOT/bin
+
+if [[ ${YAMLLM_TEST_FILE-} ]]; then
+  ys_program=yamllm-test.ys
+else
+  ys_program=yamllm.ys
+fi
 
 if [[ $(command -v rlwrap) ]]; then
-  rlwrap ys "$bin/yamllm.ys" "$@"
+  rlwrap ys "$bin/$ys_program" "$@"
 else
-  ys "$bin/yamllm.ys" "$@"
+  ys "$bin/$ys_program" "$@"
 fi

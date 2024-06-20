@@ -5,13 +5,13 @@
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
-ys-min-version =: 62
+ys-min-version =: 63
 
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
 
 when (ys-min-version > VERSION.split(/\./).last().num()):
-  die: 'ys version 0.1.62 or greater required'
+  die: "ys version 0.1.$ys-min-version or greater required"
 
 api-key =: ENV.YAMLLM_GROQ_API_KEY ||
   die("Please 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'.")
@@ -26,17 +26,14 @@ api-model =: ENV.YAMLLM_API_MODEL ||
 defn main(query=nil):
   when query.in(['--help' '-h']): usage()
 
-  test-file =: ENV.YAMLLM_TEST_FILE
-
-  if test-file:
-    run-tests: test-file
-    if query:
-      then:
-        say: "Q: $query"
-        run: query
-      else:
-        while true:
-          run: get-query()
+  if query:
+    then:
+      say: "Q: $query"
+      run: query
+    else:
+      say: "(Use ctl-d or 'exit' to quit)"
+      while true:
+        run: get-query()
 
 defn usage():
   file =: FILE.replace(rx('.*/(.*)') "$1")
@@ -46,12 +43,16 @@ defn usage():
   exit: 0
 
 defn run(query):
+  when query.in(['exit' 'quit' 'q' 'Q']): exit()
+
   query =: |
     $get-preamble()
+    Query:
+    ```
     $query
+    ```
     $get-postamble()
 
-  when query.in(['exit' 'quit' 'q' 'Q']): exit()
   print: "$api-model: "
   answer =: groq(query).message()
   say: answer.format()
@@ -113,6 +114,12 @@ defn get-query():
     when q.nil?(): exit()
     if q.empty?(): recur() q
 
+defn get-preamble():
+  when-let [file ENV.YAMLLM_PREAMBLE_FILE]: slurp(file)
+
+defn get-postamble():
+  when-let [file ENV.YAMLLM_POSTAMBLE_FILE]: slurp(file)
+
 defn format(string):
   string .=: triml().prettier().trimr()
 
@@ -128,94 +135,5 @@ defn prettier(s):
                        --print-width=80
                        --prose-wrap=always
       =>: sh(cmd {:in s}).out
-
-
-#------------------------------------------------------------------------------
-# Code for testing LLM communication using YAML
-#------------------------------------------------------------------------------
-
-# ANSI color vars:
-R =:: "\x1b[1;31m"
-G =:: "\x1b[1;32m"
-Y =:: "\x1b[1;33m"
-Z =:: "\x1b[0m"
-
-yaml-test-formatting-instructions =: |
-  Do not return any explanation.
-  Only return YAML code.
-  Make sure the answer is valid YAML.
-  Avoid double quotes in YAML if possible.
-  Scalars that match the regular expression `^[!&@%&*>|,"]` must be double quoted.
-
-#   Scalars that begin with '[' or '{' must be double quoted.
-#   Only return one YAML block.
-#   Always use plain scalars for string values when possible.
-#   Always use double quoted scalars when quotes are required.
-
-defn run-tests(file):
-  data =: file.ys/load-file()
-
-  say: ''
-  say: 79 * '<'
-
-  loop [data data i 1]:
-    +[test & data] =: data
-    when test:
-      say: "$Y$(79 * '=')$Z"
-      say: "TEST $i:"
-      test-to-yaml: test
-      sleep: (ENV.YAMLLM_API_SLEEP || 0.5).num()
-      recur: data i.inc()
-
-  say: 79 * '>'
-  say: ''
-
-defn test-to-yaml(test):
-  json =: test.json
-
-  query =: |
-    $(get-preamble() ||
-      "Convert the following JSON code block to YAML:")
-    ```
-    $json
-    ```
-    $(get-postamble() || yaml-test-formatting-instructions)
-
-  resp =: query.groq()
-  resp-msg =: resp.message()
-  resp-yaml =: resp-msg.get-code-section()
-
-  d =: ENV.YAMLLM_TEST_DEBUG
-  if (resp-yaml = test.yaml):
-    then:
-      say: "${G}PASS EXACT - $(test.desc)$Z"
-    else:
-      say: "${R}FAIL EXACT - $(test.desc)$Z"
-      if d:
-        say:
-          yaml/dump::
-            query:: query
-            response:: resp-msg
-        say: resp-yaml
-
-  if (resp-yaml != test.yaml):
-    try:
-      if (resp-yaml.yaml/load() = test.yaml.yaml/load()):
-        say: "${G}PASS EQUAL - $(test.desc)$Z"
-        say: "${R}FAIL EQUAL - $(test.desc)$Z"
-      catch:
-        say: "${R}FAIL VALID - $(test.desc)$Z"
-
-defn get-code-section(text):
-  text =: text.replace(/(?s).*?```\n/ '')
-  text =: text.replace(/(?s)\n```(\n.*|$)/ '')
-  text =: text.trimr() + "\n"
-  =>: text
-
-defn get-preamble():
-  when-let [file ENV.YAMLLM_PREAMBLE_FILE]: slurp(file)
-
-defn get-postamble():
-  when-let [file ENV.YAMLLM_POSTAMBLE_FILE]: slurp(file)
 
 # vim: sw=2 ft=yaml lisp:

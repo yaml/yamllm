@@ -1,0 +1,96 @@
+#!/usr/bin/env ys-0
+
+# use: yamllm
+# TODO: fix +++ "bug" in compile
+eval-string:
+  +"$(ENV.YAMLLM_ROOT)/bin/yamllm.ys"
+  .slurp().ys/compile().replace(/\(\+\+\+.*/ '')
+
+
+#------------------------------------------------------------------------------
+# Code for testing LLM communication using YAML
+#------------------------------------------------------------------------------
+
+# ANSI color vars:
+R =:: "\x1b[1;31m"
+G =:: "\x1b[1;32m"
+Y =:: "\x1b[1;33m"
+Z =:: "\x1b[0m"
+
+defn main():
+  run-tests: ENV.YAMLLM_TEST_FILE
+
+yaml-test-formatting-instructions =: |
+  Do not return any explanation.
+  Only return YAML code.
+  Make sure the answer is valid YAML.
+  Avoid double quotes in YAML if possible.
+  Scalars that match the regular expression `^[!&@%&*>|,"]` must be double quoted.
+
+#   Scalars that begin with '[' or '{' must be double quoted.
+#   Only return one YAML block.
+#   Always use plain scalars for string values when possible.
+#   Always use double quoted scalars when quotes are required.
+
+defn run-tests(file):
+  data =: file.ys/load-file()
+
+  say: ''
+  say: 79 * '<'
+
+  loop [data data i 1]:
+    +[test & data] =: data
+    when test:
+      say: "$Y$(79 * '=')$Z"
+      say: "TEST $i:"
+      test-to-yaml: test
+      sleep: (ENV.YAMLLM_API_SLEEP || 0.5).num()
+      recur: data i.inc()
+
+  say: 79 * '>'
+  say: ''
+
+defn test-to-yaml(test):
+  json =: test.json
+
+  query =: |
+    $(get-preamble() ||
+      "Convert the following JSON code block to YAML:")
+    ```
+    $json
+    ```
+    $(get-postamble() || yaml-test-formatting-instructions)
+
+  resp =: query.groq()
+  resp-msg =: resp.message()
+  resp-yaml =: resp-msg.get-code-section()
+
+  d =: ENV.YAMLLM_TEST_DEBUG
+  if (resp-yaml = test.yaml):
+    then:
+      say: "${G}PASS EXACT - $(test.desc)$Z"
+    else:
+      say: "${R}FAIL EXACT - $(test.desc)$Z"
+      if d:
+        say:
+          yaml/dump::
+            query:: query
+            response:: resp-msg
+        say: resp-yaml
+
+  if (resp-yaml != test.yaml):
+    try:
+      if (resp-yaml.yaml/load() = test.yaml.yaml/load()):
+        say: "${G}PASS EQUAL - $(test.desc)$Z"
+        say: "${R}FAIL EQUAL - $(test.desc)$Z"
+      catch:
+        say: "${R}FAIL VALID - $(test.desc)$Z"
+
+defn get-code-section(text):
+  text =: text.replace(/(?s).*?```\n/ '')
+  text =: text.replace(/(?s)\n```(\n.*|$)/ '')
+  text =: text.trimr() + "\n"
+  =>: text
+
+
+# vim: sw=2 ft=yaml lisp:

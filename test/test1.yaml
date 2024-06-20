@@ -31,7 +31,7 @@
   yaml: |
     - "&foo"
     - "!bar"
-    - "*bar"
+    - "*baz"
     - "[baz"
     - -baz
     - "%baz"
