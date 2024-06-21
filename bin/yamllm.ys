@@ -14,7 +14,8 @@ when (ys-min-version > VERSION.split(/\./).last().num()):
   die: "ys version 0.1.$ys-min-version or greater required"
 
 api-key =: ENV.YAMLLM_GROQ_API_KEY ||
-  die("Please 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'.")
+  die("\nPlease 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'
+       \nGet one here:\ https://console.groq.com/keys")
 
 api-model =: ENV.YAMLLM_API_MODEL ||
   'llama3-70b-8192'
