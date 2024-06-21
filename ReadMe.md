@@ -55,6 +55,13 @@ These programs make it nicer to use but are not required:
   ```
 
 
+### Try in a Browser with Github Codespaces
+
+Use the [Codespace Quickstart Link](
+https://codespaces.new/yaml/yamllm?quickstart=1) to try out yamllm in a browser
+environment.
+
+
 ## CLI Usage
 
 To start a query loop:
@@ -67,6 +74,7 @@ Use `ctl-d`, `exit` or `q` to exit.
 To run a single query:
 ```
 $ yamllm 'Tell me a story'
+```
 
 
 ## Environment Variables
@@ -103,7 +111,7 @@ To use these variables, be sure to `export` them after setting them.
 
 * `YAMLLM_TOPP=<number 0.0 - 1.0>`
 
-  Alternative way to do something linke YAMLLM_TEMP.
+  Alternative way to do something like `YAMLLM_TEMP`.
   Default is 1.0.
 
 * `YAMLLM_TEST_FILE=$PWD/test/test1/yaml`
@@ -113,4 +121,3 @@ To use these variables, be sure to `export` them after setting them.
 * `YAMLLM_DEBUG=1`
 
   Dump API payloads.
-
