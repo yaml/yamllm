@@ -7,6 +7,7 @@ RUN apt update \
         jq \
         libz-dev \
         make \
+        rlwrap \
         xz-utils \
  && true
 
