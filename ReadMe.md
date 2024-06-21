@@ -54,6 +54,11 @@ These programs make it nicer to use but are not required:
   npm install -g prettier
   ```
 
+### Using Github Codespaces in a Browser
+
+Use the [Codespace Quickstart
+Link](https://codespaces.new/yaml/yamllm?quickstart=1) to try out yamllm in
+a browser environment.
 
 ## CLI Usage
 

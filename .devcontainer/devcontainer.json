@@ -1,0 +1,5 @@
+{
+  "name": "yamllm container",
+  "build": { "dockerfile": "Dockerfile" },
+  "postAttachCommand": "source .rc"
+}
