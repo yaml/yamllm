@@ -13,58 +13,101 @@ when-not ENV.YAMLLM_ROOT:
 when (ys-min-version > VERSION.split(/\./).last().num()):
   die: "ys version 0.1.$ys-min-version or greater required"
 
-api-key =: ENV.YAMLLM_GROQ_API_KEY ||
-  die("\nPlease 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'
-       \nGet one here:\ https://console.groq.com/keys")
+api-model =:
+  cond:
+    ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
+    ENV.YAMLLM_GROQ_API_KEY: 'llama3'
+    ENV.YAMLLM_OPENAI_API_KEY: 'gpt4++'
+    =>: die("Can't determine model, no API key set.")
 
-api-model =: ENV.YAMLLM_API_MODEL ||
-  'llama3-70b-8192'
+shortcuts =::
+  llama3: llama3-70b-8192
+  llame3-8: llama3-8b-8192
+  gemma: gemma-7b-it
+  gemma2: gemma2-9b-it
+  mixtral: mixtral-8x7b-32768
+  whisper: whisper-large-v3
+  gpt4++: gpt-4o
+  gpt4+: gpt-4-turbo
+  gpt4: gpt-4
+  gpt3: gpt-3.5-turbo
 
+api-model =: shortcuts.get(api-model) || api-model
+
+groq-models =::
+- llama3-70b-8192
+- llama3-8b-8192
+- gemma-7b-it
+- gemma2-9b-it
+- mixtral-8x7b-32768
+- whisper-large-v3
+
+openai-models =::
+- gpt-4o
+- gpt-4-turbo
+- gpt-4
+- gpt-3.5-turbo
+
+or:
+  api-model.in(groq-models)
+  api-model.in(openai-models)
+  die("Unrecognized LLM model '$api-model'")
 
 #------------------------------------------------------------------------------
 # Main script logic
 #------------------------------------------------------------------------------
-defn main(query=nil):
-  when query.in(['--help' '-h']): usage()
+defn main(prompt=nil):
+  when prompt.in(['--help' '-h']): usage()
 
-  if query:
+  prompt =: get-prompt(prompt)
+
+  if prompt:
     then:
-      say: "Q: $query"
-      run: query
+      say: "Q: $prompt"
+      run: prompt
     else:
       say: "(Use ctl-d or 'exit' to quit)"
       while true:
-        run: get-query()
+        run: ask-for-prompt()
 
 defn usage():
   file =: FILE.replace(rx('.*/(.*)') "$1")
   say: |
-    $ $file          - Prompt for query
-    $ $file <query>  - Specific query
+    $ $file           - Ask for prompt
+    $ $file <prompt>  - Specific prompt
   exit: 0
 
-defn run(query):
-  when query.in(['exit' 'quit' 'q' 'Q']): exit()
+defn run(prompt):
+  when prompt.in(['exit' 'quit' 'q' 'Q']): exit()
 
-  query =: |
+  prompt =: |
     $get-preamble()
-    Query:
+    prompt:
     ```
-    $query
+    $prompt
     ```
     $get-postamble()
 
   print: "$api-model: "
-  answer =: groq(query).message()
+  answer =:
+    cond:
+      api-model.in(groq-models): groq(prompt).message()
+      api-model.in(openai-models): openai(prompt).message()
+      =>: die()
+
   say: answer.format()
 
 
 #------------------------------------------------------------------------------
 # Groq API functions
 #------------------------------------------------------------------------------
-defn groq(query):
+defn groq(prompt):
   api-url =: ENV.YAMLLM_GROQ_API_URL ||
     'https://api.groq.com/openai/v1/chat/completions'
+
+  api-key =: ENV.YAMLLM_GROQ_API_KEY ||
+    die("\nPlease 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'
+        \nGet one here:\ https://console.groq.com/keys")
 
   request =::
     :headers:
@@ -72,13 +115,65 @@ defn groq(query):
       :Authorization:: "Bearer $api-key"
     :body::
       json/dump::
+        :model:: api-model
         :messages:
         - :role: user
-          :content:: query
-        :model:: api-model
+          :content:: prompt
         :temperature:: (ENV.YAMLLM_TEMP || 0.8).num()
-        # XXX _ not allowed in YS keywords yet.
         ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0).num()
+
+  when ENV.YAMLLM_DEBUG:
+    say: request.yaml/dump()
+
+  response =:
+    try:
+      http/post api-url: request
+      catch e:
+        e =: ex-data(e)
+        say:
+          yaml/dump::
+            status:: e.status
+            body:: e.body.json/load()
+            api-key:: api-key
+        exit: 1
+
+  when ENV.YAMLLM_DEBUG:
+    say: response.yaml/dump()
+
+  when (response.status != 200):
+    die(response)
+
+  json/load: response.body
+
+defn message(response):
+  =>: response.choices.0.message.content
+
+
+#------------------------------------------------------------------------------
+# OpenAI API functions
+#------------------------------------------------------------------------------
+defn openai(prompt):
+  api-url =: ENV.YAMLLM_OPENAI_API_URL ||
+    'https://api.openai.com/v1/chat/completions'
+
+  api-key =: ENV.YAMLLM_OPENAI_API_KEY ||
+    die("\nPlease 'export YAMLLM_OPENAI_API_KEY=<your-groq-api-key'
+        \nGet one here:\ https://platform.openai.com/api-keys")
+
+  request =::
+    :headers:
+      :Content-Type: application/json
+      :Authorization:: "Bearer $api-key"
+    :body::
+      json/dump::
+        :model:: api-model
+        :messages:
+        - :role: user
+          :content:: prompt
+        :temperature:: (ENV.YAMLLM_TEMP || 0.8).num()
+
+  when ENV.YAMLLM_DEBUG:
+    say: request.yaml/dump()
 
   response =:
     try:
@@ -107,7 +202,17 @@ defn message(response):
 #------------------------------------------------------------------------------
 # Helper functions
 #------------------------------------------------------------------------------
-defn get-query():
+defn get-prompt(prompt):
+  env =: ENV.YAMLLM_PROMPT
+  if prompt:
+    if env:
+      then: die("Can't specify prompt string when using YAMLLM_PROMPT var.")
+      else: prompt
+    if env:
+      then: env.slurp()
+      else: nil
+
+defn ask-for-prompt():
   loop:
     print: "Q: "
     q =: read-line()
@@ -116,10 +221,10 @@ defn get-query():
     if q.empty?(): recur() q
 
 defn get-preamble():
-  when-let [file ENV.YAMLLM_PREAMBLE_FILE]: slurp(file)
+  when-let [file ENV.YAMLLM_PRE]: slurp(file)
 
 defn get-postamble():
-  when-let [file ENV.YAMLLM_POSTAMBLE_FILE]: slurp(file)
+  when-let [file ENV.YAMLLM_POST]: slurp(file)
 
 defn format(string):
   string .=: triml().prettier().trimr()
