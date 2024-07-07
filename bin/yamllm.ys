@@ -80,6 +80,8 @@ defn usage():
 defn run(prompt):
   when prompt.in(['exit' 'quit' 'q' 'Q']): exit()
 
+  orig-prompt =: prompt
+
   prompt =: |
     $get-preamble()
     prompt:
@@ -97,7 +99,7 @@ defn run(prompt):
 
   answer =: answer.format()
 
-  spit '.yamllm-query.md': |
+  spit log-file(orig-prompt): |
     `````
     $(prompt.trim())
     `````
@@ -105,6 +107,19 @@ defn run(prompt):
     $answer
 
   say: answer
+
+defn log-file(prompt):
+  stamp =: sh("date +%Y%m%d-%H%M%S").out.chomp()
+  prompt .=: replace(/[^\w]/ '-')
+             .subs(0 min(count(prompt) 20))
+             .replace(/-+$/ '')
+             .str/lower-case()
+  prompt =:
+    if empty?(prompt):
+      +'unknown'
+      prompt
+
+  =>: "log/${stamp}-$api-model+$prompt.md"
 
 
 #------------------------------------------------------------------------------

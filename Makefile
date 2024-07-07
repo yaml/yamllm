@@ -29,9 +29,9 @@ test: $(YS)
 install-ys: $(YS)
 
 clean:
-	$(RM) .yamllm-query.md
 
 realclean: clean
+	$(RM) log/*
 
 distclean: realclean
 	$(RM) -r $(YS_ROOT)
