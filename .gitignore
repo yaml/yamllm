@@ -1,6 +1,7 @@
 /bin/ys*
 /note/
 /ys/
+/.yamllm-query.md
 prompt
 pre
 post

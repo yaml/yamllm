@@ -83,9 +83,9 @@ defn run(prompt):
   prompt =: |
     $get-preamble()
     prompt:
-    ```
+    ````
     $prompt
-    ```
+    ````
     $get-postamble()
 
   print: "$api-model: "
@@ -95,7 +95,16 @@ defn run(prompt):
       api-model.in(openai-models): openai(prompt).message()
       =>: die()
 
-  say: answer.format()
+  answer =: answer.format()
+
+  spit '.yamllm-query.md': |
+    `````
+    $(prompt.trim())
+    `````
+    ---------------------------------------------------------------------------
+    $answer
+
+  say: answer
 
 
 #------------------------------------------------------------------------------
