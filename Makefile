@@ -4,7 +4,9 @@ ROOT := $(shell pwd)
 BIN := $(ROOT)/bin
 TEST := $(ROOT)/test
 
-YS := $(BIN)/ys
+YS_ROOT := $(ROOT)/ys
+YS_BIN := $(YS_ROOT)/bin
+YS := $(YS_BIN)/ys
 YS_INSTALL_URL := https://yamlscript.org/install
 
 export PATH := $(ROOT)/bin:$(PATH)
@@ -31,10 +33,10 @@ clean:
 realclean: clean
 
 distclean: realclean
-	$(RM) $(YS)*
+	$(RM) -r $(YS_ROOT)
 
 #------------------------------------------------------------------------------
 $(YS):
-	curl -s $(YS_INSTALL_URL) | PREFIX=$(ROOT) BIN=1 bash
+	curl -s $(YS_INSTALL_URL) | PREFIX=$(YS_ROOT) BIN=1 bash
 	$@ --version
 	@echo $@ installed
