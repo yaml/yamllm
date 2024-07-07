@@ -21,6 +21,7 @@ defn main():
   run-tests: ENV.YAMLLM_TEST_FILE
 
 yaml-test-formatting-instructions =: |
+  You are an expert in YAML.
   Do not return any explanation.
   Only return YAML code.
   Make sure the answer is valid YAML.
