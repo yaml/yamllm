@@ -13,6 +13,14 @@ when-not ENV.YAMLLM_ROOT:
 when (ys-min-version > VERSION.split(/\./).last().num()):
   die: "ys version 0.1.$ys-min-version or greater required"
 
+log-dir =:
+  log-dir =: ENV.YAMLLM_LOG_DIR
+  when ENV.YAMLLM_LOG_DIR:
+    if log-dir.fs-d():
+      then: log-dir
+      else:
+        warn: "NOTE: YAMLLM_LOG_DIR=$log-dir but no such directory."
+
 api-model =:
   cond:
     ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
@@ -99,27 +107,29 @@ defn run(prompt):
 
   answer =: answer.format()
 
-  spit log-file(orig-prompt): |
-    `````
-    $(prompt.trim())
-    `````
-    ---------------------------------------------------------------------------
-    $answer
+  when log-dir:
+    spit log-file(orig-prompt): |
+      `````
+      $(prompt.trim())
+      `````
+      ---------------------------------------------------------------------------
+      $answer
 
   say: answer
 
 defn log-file(prompt):
   stamp =: sh("date +%Y%m%d-%H%M%S").out.chomp()
   prompt .=: replace(/[^\w]/ '-')
-             .subs(0 min(count(prompt) 20))
+             .replace(/--+/ '-')
              .replace(/-+$/ '')
+  prompt .=: subs(0 min(count(prompt) 20))
              .str/lower-case()
   prompt =:
     if empty?(prompt):
       +'unknown'
       prompt
 
-  =>: "log/${stamp}-$api-model+$prompt.md"
+  =>: "$log-dir/${stamp}-$api-model+$prompt.md"
 
 
 #------------------------------------------------------------------------------

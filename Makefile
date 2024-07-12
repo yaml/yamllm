@@ -31,7 +31,7 @@ install-ys: $(YS)
 clean:
 
 realclean: clean
-	$(RM) log/*
+	$(RM) -r log
 
 distclean: realclean
 	$(RM) -r $(YS_ROOT)
