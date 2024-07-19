@@ -39,6 +39,7 @@ You can install it here (in `$PWD/bin/`) with `make install-ys`.
 ## Installation
 
 * Get a Groq API key [here](https://console.groq.com/keys).
+* Or get an OpenAI API key [here](https://platform.openai.com/api-keys).
 
 Run these commands:
 ```
@@ -98,24 +99,31 @@ One of the first 2 here is required.
 
 * `YAMLLM_MODEL=<model-id>`
 
-  Choose one of groq's models:
+  Choose one of the Groq or OpenAI models:
 
   ```
-  * llama3    (llama3-70b-8192     Meta)
-  * llame3-8  (llama3-8b-8192      Meta)
-  * gemma     (gemma-7b-it         Google)
-  * gemma2    (gemma2-9b-it        Google)
-  * mixtral   (mixtral-8x7b-32768  Mistral)
-  * whisper   (whisper-large-v3    OpenAI)
-  * gpt4++    (gpt-4o              OpenAI)
-  * gpt4+     (gpt-4-turbo         OpenAI)
-  * gpt4      (gpt-4               OpenAI)
-  * gpt3      (gpt-3.5-turbo       OpenAI)
+  * llama3    (llama3-70b-8192      Meta)
+  * llama38b  (llama3-8b-8192       Meta)
+  * gemma     (gemma-7b-it          Google)
+  * gemma2    (gemma2-9b-it         Google)
+  * mixtral   (mixtral-8x7b-32768   Mistral)
+  * whisper   (whisper-large-v3     OpenAI)
+  * gpt4o-    (gpt-4o-mini          OpenAI)
+  * gpt4o     (gpt-4o               OpenAI)
+  * gpt4t     (gpt-4-turbo          OpenAI)
+  * gpt4      (gpt-4                OpenAI)
+  * gpt3      (gpt-3.5-turbo        OpenAI)
+  * dalle2    (dall-e-2             OpenAI)
+  * dalle3    (dall-e-3             OpenAI)
   ```
 
-  Default is `llama3-70b-8192` if `YAMLLM_GROQ_API_KEY` is set, `gpt-4o` if
+  Default is `llama3` if `YAMLLM_GROQ_API_KEY` is set, `gpt4o-` if
   `YAMLLM_OPENAI_API_KEY` is set else error.
 
+* `YAMLLM_LOG_DIR=<directory-path>`
+
+  A directory to store query results.
+  Directory can be relative or absolute but must exist.
 
 * `YAMLLM_PRE=<file>`
 
@@ -129,6 +137,10 @@ One of the first 2 here is required.
 
   File containing the prompt text to send to API.
   `YAMLLM_PRE` and `YAMLLM_POST` are added if specified.
+
+* `YAMLLM_IMAGE_SIZE=<size-indicator>`
+
+  One of `1024x1024`, `1024x1792` or `1792x1024`.
 
 * `YAMLLM_TEMP=<number 0.0 - 2.0>`
 

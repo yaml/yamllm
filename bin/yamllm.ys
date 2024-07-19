@@ -5,7 +5,7 @@
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
-ys-min-version =: 63
+ys-min-version =: 67
 
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
@@ -44,7 +44,7 @@ api-model =:
   cond:
     ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
     ENV.YAMLLM_GROQ_API_KEY: 'llama3'
-    ENV.YAMLLM_OPENAI_API_KEY: 'gpt4++'
+    ENV.YAMLLM_OPENAI_API_KEY: 'gpt4o-'
     =>: die("Can't determine model, no API key set.")
 
 api-model =: shortcuts.get(api-model) || api-model
@@ -85,7 +85,7 @@ env-vars =::
   YAMLLM_PRE: 1
   YAMLLM_PROMPT: 1
   YAMLLM_ROOT: 1
-  YAMLLM_SIZE: 1
+  YAMLLM_IMAGE_SIZE: 1
   YAMLLM_TEMP: 1
   YAMLLM_TEST_DEBUG: 1
   YAMLLM_TEST_FILE: 1
@@ -283,7 +283,7 @@ defn openai-image(prompt):
         :model:: api-model
         :prompt:: prompt
         :n: 1
-        :size:: ENV.YAMLLM_SIZE || '1024x1024'
+        :size:: ENV.YAMLLM_IMAGE_SIZE || '1024x1024'
 
   when ENV.YAMLLM_DEBUG:
     say: request.yaml/dump()
