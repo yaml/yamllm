@@ -21,24 +21,31 @@ log-dir =:
       else:
         warn: "NOTE: YAMLLM_LOG_DIR=$log-dir but no such directory."
 
+shortcuts =::
+  llama3: llama3-70b-8192
+  llama38b: llama3-8b-8192
+  gemma: gemma-7b-it
+  gemma2: gemma2-9b-it
+  mixtral: mixtral-8x7b-32768
+  whisper: whisper-large-v3
+  gpt4o: gpt-4o
+  gpt4o-: gpt-4o-mini
+  gpt4t: gpt-4-turbo
+  gpt4: gpt-4
+  gpt3: gpt-3.5-turbo
+  dalle2: dall-e-2
+  dalle3: dall-e-3
+
+when (ENV.YAMLLM_MODEL = 'list'):
+  say: shortcuts.yaml/dump()
+  exit: 0
+
 api-model =:
   cond:
     ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
     ENV.YAMLLM_GROQ_API_KEY: 'llama3'
     ENV.YAMLLM_OPENAI_API_KEY: 'gpt4++'
     =>: die("Can't determine model, no API key set.")
-
-shortcuts =::
-  llama3: llama3-70b-8192
-  llame3-8: llama3-8b-8192
-  gemma: gemma-7b-it
-  gemma2: gemma2-9b-it
-  mixtral: mixtral-8x7b-32768
-  whisper: whisper-large-v3
-  gpt4++: gpt-4o
-  gpt4+: gpt-4-turbo
-  gpt4: gpt-4
-  gpt3: gpt-3.5-turbo
 
 api-model =: shortcuts.get(api-model) || api-model
 
@@ -52,14 +59,45 @@ groq-models =::
 
 openai-models =::
 - gpt-4o
+- gpt-4o-mini
 - gpt-4-turbo
 - gpt-4
 - gpt-3.5-turbo
+- dall-e-2
+- dall-e-3
 
 or:
   api-model.in(groq-models)
   api-model.in(openai-models)
-  die("Unrecognized LLM model '$api-model'")
+  die("Unrecognized LLM model '$api-model':\n\n" +
+      yaml/dump(shortcuts))
+
+env-vars =::
+  YAMLLM_API_SLEEP: 1
+  YAMLLM_DEBUG: 1
+  YAMLLM_GROQ_API_KEY: 1
+  YAMLLM_GROQ_API_URL: 1
+  YAMLLM_LOG_DIR: 1
+  YAMLLM_MODEL: 1
+  YAMLLM_OPENAI_API_KEY: 1
+  YAMLLM_OPENAI_API_URL: 1
+  YAMLLM_POST: 1
+  YAMLLM_PRE: 1
+  YAMLLM_PROMPT: 1
+  YAMLLM_ROOT: 1
+  YAMLLM_SIZE: 1
+  YAMLLM_TEMP: 1
+  YAMLLM_TEST_DEBUG: 1
+  YAMLLM_TEST_FILE: 1
+  YAMLLM_TOPP: 1
+
+each [k ENV.keys()]:
+  when ((k =~ /^YAMLLM_/) && not(env-vars.get(k))):
+    die: |
+      Invalid env var '$k'.
+      Not one of:
+      $(env-vars.keys().join("\n"))
+
 
 #------------------------------------------------------------------------------
 # Main script logic
@@ -101,11 +139,10 @@ defn run(prompt):
   print: "$api-model: "
   answer =:
     cond:
-      api-model.in(groq-models): groq(prompt).message()
-      api-model.in(openai-models): openai(prompt).message()
+      api-model =~ /^dall-e/: openai-image(prompt).data.0.url
+      api-model.in(groq-models): groq(prompt).message().format()
+      api-model.in(openai-models): openai-chat(prompt).message().format()
       =>: die()
-
-  answer =: answer.format()
 
   when log-dir:
     spit log-file(orig-prompt): |
@@ -186,7 +223,7 @@ defn message(response):
 #------------------------------------------------------------------------------
 # OpenAI API functions
 #------------------------------------------------------------------------------
-defn openai(prompt):
+defn openai-chat(prompt):
   api-url =: ENV.YAMLLM_OPENAI_API_URL ||
     'https://api.openai.com/v1/chat/completions'
 
@@ -229,8 +266,47 @@ defn openai(prompt):
 
   json/load: response.body
 
-defn message(response):
-  =>: response.choices.0.message.content
+defn openai-image(prompt):
+  api-url =: ENV.YAMLLM_OPENAI_API_URL ||
+    'https://api.openai.com/v1/images/generations'
+
+  api-key =: ENV.YAMLLM_OPENAI_API_KEY ||
+    die("\nPlease 'export YAMLLM_OPENAI_API_KEY=<your-groq-api-key'
+        \nGet one here:\ https://platform.openai.com/api-keys")
+
+  request =::
+    :headers:
+      :Content-Type: application/json
+      :Authorization:: "Bearer $api-key"
+    :body::
+      json/dump::
+        :model:: api-model
+        :prompt:: prompt
+        :n: 1
+        :size:: ENV.YAMLLM_SIZE || '1024x1024'
+
+  when ENV.YAMLLM_DEBUG:
+    say: request.yaml/dump()
+
+  response =:
+    try:
+      http/post api-url: request
+      catch e:
+        e =: ex-data(e)
+        say:
+          yaml/dump::
+            status:: e.status
+            body:: e.body.json/load()
+            api-key:: api-key
+        exit: 1
+
+  when ENV.YAMLLM_DEBUG:
+    say: response.yaml/dump()
+
+  when (response.status != 200):
+    die(response)
+
+  json/load: response.body
 
 
 #------------------------------------------------------------------------------
