@@ -10,7 +10,7 @@ ys-min-version =: 67
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
 
-when (ys-min-version > VERSION.split(/\./).last().num()):
+when ys-min-version > VERSION.split(/\./).last().num():
   die: "ys version 0.1.$ys-min-version or greater required"
 
 log-dir =:
@@ -36,7 +36,7 @@ shortcuts =::
   dalle2: dall-e-2
   dalle3: dall-e-3
 
-when (ENV.YAMLLM_MODEL = 'list'):
+when ENV.YAMLLM_MODEL = 'list':
   say: shortcuts.yaml/dump()
   exit: 0
 
@@ -92,7 +92,7 @@ env-vars =::
   YAMLLM_TOPP: 1
 
 each [k ENV.keys()]:
-  when ((k =~ /^YAMLLM_/) && not(env-vars.get(k))):
+  when (k =~ /^YAMLLM_/) && not(env-vars.get(k)):
     die: |
       Invalid env var '$k'.
       Not one of:
@@ -211,7 +211,7 @@ defn groq(prompt):
   when ENV.YAMLLM_DEBUG:
     say: response.yaml/dump()
 
-  when (response.status != 200):
+  when response.status != 200:
     die(response)
 
   json/load: response.body
@@ -261,7 +261,7 @@ defn openai-chat(prompt):
   when ENV.YAMLLM_DEBUG:
     say: response.yaml/dump()
 
-  when (response.status != 200):
+  when response.status != 200:
     die(response)
 
   json/load: response.body
@@ -303,7 +303,7 @@ defn openai-image(prompt):
   when ENV.YAMLLM_DEBUG:
     say: response.yaml/dump()
 
-  when (response.status != 200):
+  when response.status != 200:
     die(response)
 
   json/load: response.body
@@ -331,15 +331,15 @@ defn ask-for-prompt():
     if q.empty?(): recur() q
 
 defn get-preamble():
-  when-let [file ENV.YAMLLM_PRE]: slurp(file)
+  when-let file ENV.YAMLLM_PRE: slurp(file)
 
 defn get-postamble():
-  when-let [file ENV.YAMLLM_POST]: slurp(file)
+  when-let file ENV.YAMLLM_POST: slurp(file)
 
 defn format(string):
   string .=: triml().prettier().trimr()
 
-  if (string =~ /\n/):
+  if string =~ /\n/:
     +"\n$string"
     string
 
