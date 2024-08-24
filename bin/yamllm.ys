@@ -36,7 +36,7 @@ shortcuts =::
   dalle2: dall-e-2
   dalle3: dall-e-3
 
-when ENV.YAMLLM_MODEL = 'list':
+when ENV.YAMLLM_MODEL == 'list':
   say: shortcuts.yaml/dump()
   exit: 0
 
@@ -45,7 +45,7 @@ api-model =:
     ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
     ENV.YAMLLM_GROQ_API_KEY: 'llama3'
     ENV.YAMLLM_OPENAI_API_KEY: 'gpt4o-'
-    =>: die("Can't determine model, no API key set.")
+    else: die("Can't determine model, no API key set.")
 
 api-model =: shortcuts.get(api-model) || api-model
 
@@ -67,8 +67,8 @@ openai-models =::
 - dall-e-3
 
 or:
-  api-model.in(groq-models)
-  api-model.in(openai-models)
+  api-model.in?(groq-models)
+  api-model.in?(openai-models)
   die("Unrecognized LLM model '$api-model':\n\n" +
       yaml/dump(shortcuts))
 
@@ -103,7 +103,7 @@ each [k ENV.keys()]:
 # Main script logic
 #------------------------------------------------------------------------------
 defn main(prompt=nil):
-  when prompt.in(['--help' '-h']): usage()
+  when prompt.in?(['--help' '-h']): usage()
 
   prompt =: get-prompt(prompt)
 
@@ -124,7 +124,7 @@ defn usage():
   exit: 0
 
 defn run(prompt):
-  when prompt.in(['exit' 'quit' 'q' 'Q']): exit()
+  when prompt.in?(['exit' 'quit' 'q' 'Q']): exit()
 
   orig-prompt =: prompt
 
@@ -140,9 +140,9 @@ defn run(prompt):
   answer =:
     cond:
       api-model =~ /^dall-e/: openai-image(prompt).data.0.url
-      api-model.in(groq-models): groq(prompt).message().format()
-      api-model.in(openai-models): openai-chat(prompt).message().format()
-      =>: die()
+      api-model.in?(groq-models): groq(prompt).message().format()
+      api-model.in?(openai-models): openai-chat(prompt).message().format()
+      else: die()
 
   when log-dir:
     spit log-file(orig-prompt): |
