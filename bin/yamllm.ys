@@ -10,7 +10,7 @@ ys-min-version =: 67
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
 
-when ys-min-version > VERSION.split(/\./).last().num():
+when ys-min-version > VERSION.split(/\./).last().to-num():
   die: "ys version 0.1.$ys-min-version or greater required"
 
 log-dir =:
@@ -117,7 +117,7 @@ defn main(prompt=nil):
         run: ask-for-prompt()
 
 defn usage():
-  file =: FILE.replace(rx('.*/(.*)') "$1")
+  file =: FILE.replace(qr('.*/(.*)') "$1")
   say: |
     $ $file           - Ask for prompt
     $ $file <prompt>  - Specific prompt
@@ -190,8 +190,8 @@ defn groq(prompt):
         :messages:
         - :role: user
           :content:: prompt
-        :temperature:: (ENV.YAMLLM_TEMP || 0.8).num()
-        ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0).num()
+        :temperature:: (ENV.YAMLLM_TEMP || 0.8).to-num()
+        ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0).to-num()
 
   when ENV.YAMLLM_DEBUG:
     say: request.yaml/dump()
@@ -241,7 +241,7 @@ defn openai-chat(prompt):
         :messages:
         - :role: user
           :content:: prompt
-        :temperature:: (ENV.YAMLLM_TEMP || 0.8).num()
+        :temperature:: (ENV.YAMLLM_TEMP || 0.8).to-num()
 
   when ENV.YAMLLM_DEBUG:
     say: request.yaml/dump()
@@ -328,7 +328,9 @@ defn ask-for-prompt():
     q =: read-line()
     # ctl-d returns nil to exit:
     when q.nil?(): exit()
-    if q.empty?(): recur() q
+    if q.empty?():
+      recur:
+      else: q
 
 defn get-preamble():
   when-let file ENV.YAMLLM_PRE: slurp(file)
@@ -350,6 +352,6 @@ defn prettier(s):
       cmd =:: prettier --stdin-filepath=x.md
                        --print-width=80
                        --prose-wrap=always
-      =>: sh(cmd {:in s}).out
+      sh(cmd {:in s}): .out
 
 # vim: sw=2 ft=yaml lisp:

@@ -22,7 +22,7 @@ default:
 
 .PHONY: test
 test: $(YS)
-	@for i in {1..$(repeat)}; do \
+	for i in {1..$(repeat)}; do \
 	  ( set -x; YAMLLM_TEST_FILE=$(test-file) yamllm ); \
 	done
 
