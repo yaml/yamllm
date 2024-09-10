@@ -5,7 +5,7 @@
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
-ys-min-version =: 67
+ys-min-version =: 75
 
 when-not ENV.YAMLLM_ROOT:
   die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
