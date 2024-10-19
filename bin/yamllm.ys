@@ -5,49 +5,64 @@
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
-ys-min-version =: 75
+ys-min-version =: 80
 
-when-not ENV.YAMLLM_ROOT:
-  die: "YAMLLM_ROOT not set. Try: 'source bashrc'."
-
-when ys-min-version > VERSION.split(/\./).last().to-num():
+when ys-min-version > VERSION.split(/\./):last:N:
   die: "ys version 0.1.$ys-min-version or greater required"
 
-log-dir =:
-  log-dir =: ENV.YAMLLM_LOG_DIR
-  when ENV.YAMLLM_LOG_DIR:
-    if log-dir.fs-d():
-      then: log-dir
-      else:
-        warn: "NOTE: YAMLLM_LOG_DIR=$log-dir but no such directory."
+config-file =: "$(ENV.HOME)/.yamllm/config.yaml"
+config =:
+  cond:
+    ENV.YAMLLM_CONFIG: ENV.YAMLLM_CONFIG:slurp:yaml/load
+    config-file:fs-e: config-file:slurp:yaml/load
+    else: die("No '$config-file' or YAMLLM_CONFIG")
+
+session-dir =:
+  ENV.YAMLLM_SESSION_DIR ||
+  config.session-dir ||
+  '.'
+
+session-file =:
+  atom:
+    when+ ENV.YAMLLM_SESSION:
+      if _.starts?('/'):
+        _
+        "$session-dir/$(_)"
 
 shortcuts =::
-  llama3: llama3-70b-8192
-  llama38b: llama3-8b-8192
-  gemma: gemma-7b-it
+  dalle2: dall-e-2
+  dalle3: dall-e-3
   gemma2: gemma2-9b-it
-  mixtral: mixtral-8x7b-32768
-  whisper: whisper-large-v3
+  gemma: gemma-7b-it
+  gpt3: gpt-3.5-turbo
+  gpt4: gpt-4
   gpt4o: gpt-4o
   gpt4o-: gpt-4o-mini
   gpt4t: gpt-4-turbo
-  gpt4: gpt-4
-  gpt3: gpt-3.5-turbo
-  dalle2: dall-e-2
-  dalle3: dall-e-3
+  haiku: claude-3-5-haiku-latest
+  llama38b: llama3-8b-8192
+  llama3: llama3-70b-8192
+  mixtral: mixtral-8x7b-32768
+  opus: claude-3-opus-latest
+  sonnet: claude-3-5-sonnet-latest
+  whisper: whisper-large-v3
 
 when ENV.YAMLLM_MODEL == 'list':
-  say: shortcuts.yaml/dump()
+  say: shortcuts:yaml/dump
   exit: 0
 
 api-model =:
   cond:
     ENV.YAMLLM_MODEL: ENV.YAMLLM_MODEL
-    ENV.YAMLLM_GROQ_API_KEY: 'llama3'
-    ENV.YAMLLM_OPENAI_API_KEY: 'gpt4o-'
+    config.default-model: config.default-model
     else: die("Can't determine model, no API key set.")
 
-api-model =: shortcuts.get(api-model) || api-model
+api-model =: shortcuts.$api-model || api-model
+
+anthropic-models =::
+- claude-3-5-haiku-latest
+- claude-3-5-sonnet-latest
+- claude-3-opus-latest
 
 groq-models =::
 - llama3-70b-8192
@@ -67,36 +82,34 @@ openai-models =::
 - dall-e-3
 
 or:
+  api-model.in?(anthropic-models)
   api-model.in?(groq-models)
   api-model.in?(openai-models)
   die("Unrecognized LLM model '$api-model':\n\n" +
-      yaml/dump(shortcuts))
+  yaml/dump(shortcuts))
 
 env-vars =::
   YAMLLM_API_SLEEP: 1
+  YAMLLM_CONFIG: 1
   YAMLLM_DEBUG: 1
-  YAMLLM_GROQ_API_KEY: 1
-  YAMLLM_GROQ_API_URL: 1
-  YAMLLM_LOG_DIR: 1
+  YAMLLM_IMAGE_SIZE: 1
   YAMLLM_MODEL: 1
-  YAMLLM_OPENAI_API_KEY: 1
-  YAMLLM_OPENAI_API_URL: 1
   YAMLLM_POST: 1
   YAMLLM_PRE: 1
   YAMLLM_PROMPT: 1
   YAMLLM_ROOT: 1
-  YAMLLM_IMAGE_SIZE: 1
+  YAMLLM_SESSION: 1
   YAMLLM_TEMP: 1
   YAMLLM_TEST_DEBUG: 1
   YAMLLM_TEST_FILE: 1
   YAMLLM_TOPP: 1
 
-each [k ENV.keys()]:
+each [k ENV:keys]:
   when (k =~ /^YAMLLM_/) && not(env-vars.get(k)):
     die: |
       Invalid env var '$k'.
       Not one of:
-      $(env-vars.keys().join("\n"))
+      $(env-vars:keys.join("\n"))
 
 
 #------------------------------------------------------------------------------
@@ -105,11 +118,12 @@ each [k ENV.keys()]:
 defn main(prompt=nil):
   when prompt.in?(['--help' '-h']): usage()
 
+  prompt-orig =: prompt
   prompt =: get-prompt(prompt)
 
   if prompt:
     then:
-      say: "Q: $prompt"
+      say: "Q: $prompt-orig"
       run: prompt
     else:
       say: "(Use ctl-d or 'exit' to quit)"
@@ -123,62 +137,113 @@ defn usage():
     $ $file <prompt>  - Specific prompt
   exit: 0
 
-defn run(prompt):
+defn run(prompt session=nil):
+  session =: session-file:D || session
+
   when prompt.in?(['exit' 'quit' 'q' 'Q']): exit()
 
   orig-prompt =: prompt
 
+  session-text =:
+    when session && session:fs-e:
+      session:slurp
+
   prompt =: |
     $get-preamble()
-    prompt:
-    ````
+    $session-text
     $prompt
-    ````
     $get-postamble()
 
   print: "$api-model: "
   answer =:
     cond:
-      api-model =~ /^dall-e/: openai-image(prompt).data.0.url
-      api-model.in?(groq-models): groq(prompt).message().format()
-      api-model.in?(openai-models): openai-chat(prompt).message().format()
+      api-model =~ /^dall-e/:
+        openai-image(prompt).data.0.url
+      api-model.in?(anthropic-models):
+        anthropic(prompt):anthropic-message:format
+      api-model.in?(groq-models):
+        groq(prompt).choices.0.message.content:format
+      api-model.in?(openai-models):
+        openai-chat(prompt).choices.0.message.content:format
       else: die()
-
-  when log-dir:
-    spit log-file(orig-prompt): |
-      `````
-      $(prompt.trim())
-      `````
-      ---------------------------------------------------------------------------
-      $answer
 
   say: answer
 
-defn log-file(prompt):
-  stamp =: sh("date +%Y%m%d-%H%M%S").out.chomp()
-  prompt .=: replace(/[^\w]/ '-')
-             .replace(/--+/ '-')
-             .replace(/-+$/ '')
-  prompt .=: subs(0 min(count(prompt) 20))
-             .str/lower-case()
-  prompt =:
-    if empty?(prompt):
-      +'unknown'
-      prompt
+  when session:
+    spit session _ :append true: |+
+      Q: $(orig-prompt:trim)
+      A: $(answer:trim)
 
-  =>: "$log-dir/${stamp}-$api-model+$prompt.md"
+defn get-session-file(prompt):
+  stamp =: sh("date +%Y%m%d-%H%M%S").out:chomp
+  prompt .=: replace(/[^\w]/ '-')
+    .replace(/--+/ '-')
+    .replace(/-+$/ '')
+  prompt .=: subs(0 min(prompt.# 20)):lc
+  prompt |||=: 'unknown'
+
+  =>: "$session-dir/$stamp-$api-model+$prompt.txt"
+
+
+#------------------------------------------------------------------------------
+# Anthropic API functions
+#------------------------------------------------------------------------------
+defn anthropic(prompt):
+  api-url =: 'https://api.anthropic.com/v1/messages'
+
+  api-key =: config.api-key.anthropic ||
+    die("\nAPI key not in 'config.api-key.anthropic'.
+    \nGet one here:\ https://console.anthropic.com/settings/keys")
+
+  request =::
+    :headers:
+      :x-api-key:: api-key
+      :anthropic-version: 2023-06-01
+      :content-type: application/json
+    :body::
+      json/dump::
+        :model:: api-model
+        max_tokens: 1024
+        :messages:
+        - :role: user
+          :content:: prompt
+
+  when ENV.YAMLLM_DEBUG:
+    say: request:yaml/dump
+
+  response =:
+    try:
+      http/post api-url: request
+      catch e:
+        e =: ex-data(e)
+        say:
+          yaml/dump::
+            status:: e.status
+            body:: e.body:json/load
+            api-key:: api-key
+        exit: 1
+
+  when ENV.YAMLLM_DEBUG:
+    say: response:yaml/dump
+
+  when response.status != 200:
+    die(response)
+
+  json/load: response.body
+
+defn anthropic-message(response):
+  =>: response.content.0.text
 
 
 #------------------------------------------------------------------------------
 # Groq API functions
 #------------------------------------------------------------------------------
 defn groq(prompt):
-  api-url =: ENV.YAMLLM_GROQ_API_URL ||
-    'https://api.groq.com/openai/v1/chat/completions'
+  api-url =: 'https://api.groq.com/openai/v1/chat/completions'
 
-  api-key =: ENV.YAMLLM_GROQ_API_KEY ||
-    die("\nPlease 'export YAMLLM_GROQ_API_KEY=<your-groq-api-key'
-        \nGet one here:\ https://console.groq.com/keys")
+  api-key =: config.api-key.groq ||
+    die("\nAPI key not in 'config.api-key.groq'.
+    \nGet one here:\ https://console.groq.com/keys")
 
   request =::
     :headers:
@@ -190,11 +255,11 @@ defn groq(prompt):
         :messages:
         - :role: user
           :content:: prompt
-        :temperature:: (ENV.YAMLLM_TEMP || 0.8).to-num()
-        ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0).to-num()
+        :temperature:: (ENV.YAMLLM_TEMP || 0.8):N
+        ! keyword('top_p'):: (ENV.YAMLLM_TOPP || 1.0):N
 
   when ENV.YAMLLM_DEBUG:
-    say: request.yaml/dump()
+    say: request:yaml/dump
 
   response =:
     try:
@@ -204,12 +269,12 @@ defn groq(prompt):
         say:
           yaml/dump::
             status:: e.status
-            body:: e.body.json/load()
+            body:: e.body:json/load
             api-key:: api-key
         exit: 1
 
   when ENV.YAMLLM_DEBUG:
-    say: response.yaml/dump()
+    say: response:yaml/dump
 
   when response.status != 200:
     die(response)
@@ -217,19 +282,18 @@ defn groq(prompt):
   json/load: response.body
 
 defn message(response):
-  =>: response.choices.0.message.content
+  =>: response
 
 
 #------------------------------------------------------------------------------
 # OpenAI API functions
 #------------------------------------------------------------------------------
 defn openai-chat(prompt):
-  api-url =: ENV.YAMLLM_OPENAI_API_URL ||
-    'https://api.openai.com/v1/chat/completions'
+  api-url =: 'https://api.openai.com/v1/chat/completions'
 
-  api-key =: ENV.YAMLLM_OPENAI_API_KEY ||
-    die("\nPlease 'export YAMLLM_OPENAI_API_KEY=<your-groq-api-key'
-        \nGet one here:\ https://platform.openai.com/api-keys")
+  api-key =: config.api-key.openai ||
+    die("\nAPI key not in 'config.api-key.openai'.
+    \nGet one here:\ https://platform.openai.com/api-keys")
 
   request =::
     :headers:
@@ -241,10 +305,10 @@ defn openai-chat(prompt):
         :messages:
         - :role: user
           :content:: prompt
-        :temperature:: (ENV.YAMLLM_TEMP || 0.8).to-num()
+          :temperature:: (ENV.YAMLLM_TEMP || 0.8):N
 
   when ENV.YAMLLM_DEBUG:
-    say: request.yaml/dump()
+    say: request:yaml/dump
 
   response =:
     try:
@@ -254,12 +318,12 @@ defn openai-chat(prompt):
         say:
           yaml/dump::
             status:: e.status
-            body:: e.body.json/load()
+            body:: e.body:json/load
             api-key:: api-key
         exit: 1
 
   when ENV.YAMLLM_DEBUG:
-    say: response.yaml/dump()
+    say: response:yaml/dump
 
   when response.status != 200:
     die(response)
@@ -267,12 +331,11 @@ defn openai-chat(prompt):
   json/load: response.body
 
 defn openai-image(prompt):
-  api-url =: ENV.YAMLLM_OPENAI_API_URL ||
-    'https://api.openai.com/v1/images/generations'
+  api-url =: 'https://api.openai.com/v1/images/generations'
 
-  api-key =: ENV.YAMLLM_OPENAI_API_KEY ||
-    die("\nPlease 'export YAMLLM_OPENAI_API_KEY=<your-groq-api-key'
-        \nGet one here:\ https://platform.openai.com/api-keys")
+  api-key =: config.api-key.openai ||
+    die("\nAPI key not in 'config.api-key.openai'.
+    \nGet one here:\ https://platform.openai.com/api-keys")
 
   request =::
     :headers:
@@ -286,7 +349,7 @@ defn openai-image(prompt):
         :size:: ENV.YAMLLM_IMAGE_SIZE || '1024x1024'
 
   when ENV.YAMLLM_DEBUG:
-    say: request.yaml/dump()
+    say: request:yaml/dump
 
   response =:
     try:
@@ -296,12 +359,12 @@ defn openai-image(prompt):
         say:
           yaml/dump::
             status:: e.status
-            body:: e.body.json/load()
+            body:: e.body:json/load
             api-key:: api-key
         exit: 1
 
   when ENV.YAMLLM_DEBUG:
-    say: response.yaml/dump()
+    say: response:yaml/dump
 
   when response.status != 200:
     die(response)
@@ -317,18 +380,30 @@ defn get-prompt(prompt):
   if prompt:
     if env:
       then: die("Can't specify prompt string when using YAMLLM_PROMPT var.")
-      else: prompt
+      else: prompt:expand-file-paths
     if env:
-      then: env.slurp()
+      then: env:slurp
       else: nil
+
+defn expand-file-paths(prompt):
+  replace prompt /%%%(\S+)%%%\s*/:
+    fn(m):
+      if m.1:fs-e:
+        then: "\n```\n$(m.1:slurp:chomp)\n```\n"
+        else: m.0
 
 defn ask-for-prompt():
   loop:
     print: "Q: "
     q =: read-line()
     # ctl-d returns nil to exit:
-    when q.nil?(): exit()
-    if q.empty?():
+    q =:
+      if q:
+        q:expand-file-paths
+        exit()
+    when q.? && not(session-file:deref):
+      reset! session-file: get-session-file(q)
+    if q:empty?:
       recur:
       else: q
 
@@ -339,19 +414,19 @@ defn get-postamble():
   when-let file ENV.YAMLLM_POST: slurp(file)
 
 defn format(string):
-  string .=: triml().prettier().trimr()
+  string =: string:triml:prettier:trimr
 
   if string =~ /\n/:
     +"\n$string"
     string
 
 defn prettier(s):
-  if sh('which prettier').out.empty?():
+  if sh('which prettier').out:empty?:
     then: s
     else:
       cmd =:: prettier --stdin-filepath=x.md
-                       --print-width=80
-                       --prose-wrap=always
+        --print-width=80
+        --prose-wrap=always
       sh(cmd {:in s}): .out
 
 # vim: sw=2 ft=yaml lisp:
