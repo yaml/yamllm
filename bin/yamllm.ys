@@ -424,9 +424,11 @@ defn prettier(s):
   if sh('which prettier').out:empty?:
     then: s
     else:
-      cmd =:: prettier --stdin-filepath=x.md
-        --print-width=80
-        --prose-wrap=always
-      sh(cmd {:in s}): .out
+      cmd =::
+        prettier
+          --stdin-filepath=x.md
+          --print-width=80
+          --prose-wrap=always
+      sh({:in s} cmd): .out
 
 # vim: sw=2 ft=yaml lisp:
