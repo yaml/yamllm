@@ -5,16 +5,18 @@
 # Initialization and sanity checks
 #------------------------------------------------------------------------------
 
-ys-min-version =: 80
 
-when ys-min-version > VERSION.split(/\./):last:N:
-  die: "ys version 0.1.$ys-min-version or greater required"
+
+ys-min-version =: 95
+
+ys-min-version <= VERSION.split(/\./):last:N ||: !:die |
+  ys version 0.1.$ys-min-version or greater required
 
 config-file =: "$(ENV.HOME)/.yamllm/config.yaml"
 config =:
   cond:
-    ENV.YAMLLM_CONFIG: ENV.YAMLLM_CONFIG:slurp:yaml/load
-    config-file:fs-e: config-file:slurp:yaml/load
+    ENV.YAMLLM_CONFIG: ENV.YAMLLM_CONFIG:read:yaml/load
+    config-file:fs-e: config-file:read:yaml/load
     else: die("No '$config-file' or YAMLLM_CONFIG")
 
 session-dir =:
@@ -22,13 +24,16 @@ session-dir =:
   config.session-dir ||
   '.'
 
-session-file =:
-  atom:
-    when+ ENV.YAMLLM_SESSION:
-      if _.starts?('/'):
-        _
-        "$session-dir/$(_)"
+session-file =: !:atom
+  when+ ENV.YAMLLM_SESSION:
+    dir file =: -[session-dir _]
+    cond:
+      fs-f(file): file
+      fs-f("$dir/$file"): "$dir/$file"
+      else:
+        die: "Invalid session file: '$file'"
 
+# TODO: Add deepseek
 shortcuts =::
   dalle2: dall-e-2
   dalle3: dall-e-3
@@ -138,7 +143,7 @@ defn usage():
   exit: 0
 
 defn run(prompt session=nil):
-  session =: session-file:D || session
+  session =: session-file:deref || session
 
   when prompt.in?(['exit' 'quit' 'q' 'Q']): exit()
 
@@ -146,7 +151,7 @@ defn run(prompt session=nil):
 
   session-text =:
     when session && session:fs-e:
-      session:slurp
+      session:read
 
   prompt =: |
     $get-preamble()
@@ -154,7 +159,6 @@ defn run(prompt session=nil):
     $prompt
     $get-postamble()
 
-  print: "$api-model: "
   answer =:
     cond:
       api-model =~ /^dall-e/:
@@ -170,19 +174,25 @@ defn run(prompt session=nil):
   say: answer
 
   when session:
-    spit session _ :append true: |+
+    write session _ :append true: |+
       Q: $(orig-prompt:trim)
-      A: $(answer:trim)
+      A ($api-model):
+      $(answer:trim)
 
 defn get-session-file(prompt):
-  stamp =: sh("date +%Y%m%d-%H%M%S").out:chomp
-  prompt .=: replace(/[^\w]/ '-')
+  name =:
+    prompt
+    .replace(/[^\w]/ '-')
     .replace(/--+/ '-')
-    .replace(/-+$/ '')
-  prompt .=: subs(0 min(prompt.# 20)):lc
-  prompt |||=: 'unknown'
-
-  =>: "$session-dir/$stamp-$api-model+$prompt.txt"
+    .replace(/^-?(.*?)-?$/ '$1')
+  name .=: subs(0 min(name:len 60)):lc
+  name |||=: sh("date +%Y%m%d-%H%M%S").out:chomp
+  local =: CWD + '/.yamllm'
+  home =: ENV.HOME + '/.yamllm'
+  cond:
+    local:fs-d && local:fs-w: "$local/$name.txt"
+    home:fs-d && home:fs-w: "$home/$name.txt"
+    else: "yamllm+$name.txt"
 
 
 #------------------------------------------------------------------------------
@@ -193,7 +203,7 @@ defn anthropic(prompt):
 
   api-key =: config.api-key.anthropic ||
     die("\nAPI key not in 'config.api-key.anthropic'.
-    \nGet one here:\ https://console.anthropic.com/settings/keys")
+         \nGet one here:\ https://console.anthropic.com/settings/keys")
 
   request =::
     :headers:
@@ -280,9 +290,6 @@ defn groq(prompt):
     die(response)
 
   json/load: response.body
-
-defn message(response):
-  =>: response
 
 
 #------------------------------------------------------------------------------
@@ -382,36 +389,37 @@ defn get-prompt(prompt):
       then: die("Can't specify prompt string when using YAMLLM_PROMPT var.")
       else: prompt:expand-file-paths
     if env:
-      then: env:slurp
+      then: env:read
       else: nil
 
 defn expand-file-paths(prompt):
   replace prompt /%%%(\S+)%%%\s*/:
     fn(m):
       if m.1:fs-e:
-        then: "\n```\n$(m.1:slurp:chomp)\n```\n"
+        then: "\n```\n$(m.1:read:chomp)\n```\n"
         else: m.0
 
 defn ask-for-prompt():
   loop:
     print: "Q: "
     q =: read-line()
+    Q =: q
     # ctl-d returns nil to exit:
     q =:
       if q:
         q:expand-file-paths
         exit()
     when q.? && not(session-file:deref):
-      reset! session-file: get-session-file(q)
+      reset! session-file: get-session-file(Q)
     if q:empty?:
       recur:
       else: q
 
 defn get-preamble():
-  when-let file ENV.YAMLLM_PRE: slurp(file)
+  when-let file ENV.YAMLLM_PRE: read(file)
 
 defn get-postamble():
-  when-let file ENV.YAMLLM_POST: slurp(file)
+  when-let file ENV.YAMLLM_POST: read(file)
 
 defn format(string):
   string =: string:triml:prettier:trimr
