@@ -1,10 +1,11 @@
 # Source this file from bash or zsh
 
-[[ ${ZSH_VERSION-} ]] &&
-  YAMLLM_ROOT=$0 ||
-  YAMLLM_ROOT=${BASH_SOURCE[0]}
+# shellcheck shell=bash
 
-YAMLLM_ROOT=$(cd "$(dirname "$YAMLLM_ROOT")" && pwd)
-export YAMLLM_ROOT
+YAMLLM_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd -P)
 
-export PATH=$YAMLLM_ROOT/bin:$YAMLLM_ROOT/ys/bin:$PATH
+PATH=$YAMLLM_ROOT/bin:$PATH
+
+export YAMLLM_ROOT PATH
+
+# vim: ft=sh:

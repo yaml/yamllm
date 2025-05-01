@@ -40,16 +40,26 @@ You can install it here (in `$PWD/bin/`) with `make install-ys`.
 
 * Get a Groq API key [here](https://console.groq.com/keys).
 * Or get an OpenAI API key [here](https://platform.openai.com/api-keys).
+* Or get an Anthropic API key [here](
+  https://console.anthropic.com/settings/keys).
 
 Run these commands:
 ```
-$ make install-ys     # Install YAMLScript `bin/ys`
-$ export YAMLLM_GROQ_API_KEY=<your-groq-api-key>
-$ # or: export YAMLLM_OPENAI_API_KEY=<your-openai-api-key>
-$ source .rc          # Adds `$PWD/bin` to your PATH (for bash or zsh)
-$ yamllm --help       # Ask it for some help
-$ yamllm 'Why pink?'  # Get to the important stuff
+export YAMLLM_GROQ_API_KEY=<your-groq-api-key>
+# or
+export YAMLLM_OPENAI_API_KEY=<your-openai-api-key>
+# or
+export YAMLLM_ANTHROPIC_API_KEY=<your-anthropic-api-key>
+
+git clone https://github.com/yaml/yamllm
+source .rc          # Adds `$PWD/bin` to your PATH (for bash or zsh)
+
+yamllm --help       # Ask it for some help
+yamllm 'Why pink?'  # Get to the important stuff
 ```
+
+
+### Optional
 
 These programs make it nicer to use but are not required:
 
