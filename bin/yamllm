@@ -14,7 +14,7 @@ config-file =: "$(ENV.HOME)/.yamllm/config.yaml"
 config =:
   cond:
     ENV.YAMLLM_CONFIG: ENV.YAMLLM_CONFIG:read:yaml/load
-    config-file:fs-e: config-file:read:yaml/load
+    config-file:fs/e: config-file:read:yaml/load
     else: die("No '$config-file' or YAMLLM_CONFIG")
 
 session-dir =:
@@ -26,8 +26,8 @@ session-file =: !:atom
   when+ ENV.YAMLLM_SESSION:
     dir file =: -[session-dir _]
     cond:
-      fs-f(file): file
-      fs-f("$dir/$file"): "$dir/$file"
+      fs/f(file): file
+      fs/f("$dir/$file"): "$dir/$file"
       else:
         die: "Invalid session file: '$file'"
 
@@ -156,7 +156,7 @@ defn run(prompt session=nil):
   orig-prompt =: prompt
 
   session-text =:
-    when session && session:fs-e:
+    when session && session:fs/e:
       session:read
 
   prompt =: |
@@ -181,8 +181,10 @@ defn run(prompt session=nil):
 
   when session:
     write session _ :append true: |+
-      Q: $(orig-prompt:trim)
-      A ($api-model):
+      ### $(orig-prompt:trim)
+
+      **$api-model**:
+
       $(answer:trim)
 
 defn get-session-file(prompt):
@@ -196,8 +198,8 @@ defn get-session-file(prompt):
   local =: CWD + '/.yamllm'
   home =: ENV.HOME + '/.yamllm'
   cond:
-    local:fs-d && local:fs-w: "$local/$name.md"
-    home:fs-d && home:fs-w: "$home/$name.md"
+    local:fs/d && local:fs/w: "$local/$name.md"
+    home:fs/d && home:fs/w: "$home/$name.md"
     else: "yamllm+$name.md"
 
 
@@ -401,7 +403,7 @@ defn get-prompt(prompt):
 defn expand-file-paths(prompt):
   replace prompt /%%%(\S+)%%%\s*/:
     fn(m):
-      if m.1:fs-e:
+      if m.1:fs/e:
         then: "\n```\n$(m.1:read:chomp)\n```\n"
         else: m.0
 
