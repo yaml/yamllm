@@ -7,8 +7,8 @@
 
 ys-min-version =: 95
 
-ys-min-version <= VERSION.split(/\./):last:N ||: !:die |
-  ys version 0.1.$ys-min-version or greater required
+# ys-min-version <= VERSION.split(/\./):last:N ||: !:die |
+#   ys version 0.1.$ys-min-version or greater required
 
 config-file =: "$(ENV.HOME)/.yamllm/config.yaml"
 config =:
@@ -33,22 +33,28 @@ session-file =: !:atom
 
 # TODO: Add deepseek
 shortcuts =::
-  dalle2: dall-e-2
-  dalle3: dall-e-3
-  gemma2: gemma2-9b-it
-  gemma: gemma-7b-it
-  gpt3: gpt-3.5-turbo
-  gpt4: gpt-4
-  gpt4o: gpt-4o
-  gpt4o-: gpt-4o-mini
-  gpt4t: gpt-4-turbo
+  # Anthropic Models
+  opus: claude-opus-4-0
+  opus4: claude-opus-4-0
+  opus3: claude-3-opus-latest
+  sonnet: claude-sonnet-4-0
+  sonnet4: claude-sonnet-4-0
+  sonnet3: claude-3-7-sonnet-latest
   haiku: claude-3-5-haiku-latest
-  llama38b: llama3-8b-8192
-  llama3: llama3-70b-8192
-  mixtral: mixtral-8x7b-32768
-  opus: claude-3-opus-latest
-  sonnet: claude-3-5-sonnet-latest
-  whisper: whisper-large-v3
+
+  # Groq Production Models
+  gemma: gemma2-9b-it
+  llama: llama-3.1-8b-instant
+  whisper: whisper-large-v3-turbo
+
+  # Groq Preview Models
+  deepseek: deepseek-r1-distill-llama-70b
+
+  # OpenAI Models
+  gpt4: gpt-4.1-2025-04-14
+  gpt4-: gpt-4.1-mini-2025-04-14
+  dalle3: dall-e-3
+  dalle2: dall-e-2
 
 when ENV.YAMLLM_MODEL == 'list':
   say: shortcuts:yaml/dump
@@ -62,25 +68,24 @@ api-model =:
 
 api-model =: shortcuts.$api-model || api-model
 
+# https://docs.anthropic.com/en/docs/about-claude/models/overview
 anthropic-models =::
-- claude-3-5-haiku-latest
-- claude-3-5-sonnet-latest
+- claude-opus-4-0
 - claude-3-opus-latest
+- claude-sonnet-4-0
+- claude-3-7-sonnet-latest
+- claude-3-5-haiku-latest
 
+# https://console.groq.com/docs/models
 groq-models =::
-- llama3-70b-8192
-- llama3-8b-8192
-- gemma-7b-it
 - gemma2-9b-it
-- mixtral-8x7b-32768
-- whisper-large-v3
+- llama-3.1-8b-instant
+- whisper-large-v3-turbo
+- deepseek-r1-distill-llama-70b
 
 openai-models =::
-- gpt-4o
-- gpt-4o-mini
-- gpt-4-turbo
-- gpt-4
-- gpt-3.5-turbo
+- gpt-4.1-2025-04-14
+- gpt-4.1-mini-2025-04-14
 - dall-e-2
 - dall-e-3
 
